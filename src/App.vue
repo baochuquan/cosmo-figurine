@@ -11,6 +11,7 @@
   let controls;
   let clock;
   let camera, scene, renderer;
+  let spiral, line;
 
   setup();
   animate();
@@ -22,19 +23,22 @@
     setupAxesHelper();
     setupLoader();
     setupLight();
+    setupSpiral();
     setupRenderer();
     setupControls();
+    setupListener();
   }
 
   function setupCamera() {
     // 初始化相机
     camera = new THREE.PerspectiveCamera(
-      75,
+      45,
       window.innerWidth / window.innerHeight,
       0.1, 
-      100
+      1000
     );
-    camera.position.set(0, 0, 8);
+    camera.position.set(8, 10, 8);
+    camera.lookAt(0, 3, 0);
     camera.updateProjectionMatrix();
   }
 
@@ -51,8 +55,8 @@
     // // 加载模型
     const colladaLoader = new ColladaLoader(loadingManager);
     colladaLoader.load('./model/elf/elf.dae', (collada) => {
-      console.log("loadded");
       figurine = collada.scene;
+      // figurine.position.set(0, -2, 0);
     });
 
     // TODO: @baocq
@@ -79,6 +83,125 @@
     directionalLight.position.set(1, 1, 0).normalize();
     scene.add(directionalLight);
   }
+
+  // 初始化环境碎片
+  function setupSpiral() {
+    const triangles = 1000;
+
+    const positions = new Float32Array(triangles * 3 * 3);
+    const colors = new Float32Array(triangles * 3 * 3);
+    const normals = new Float32Array(triangles * 3 * 3);
+
+    const d = 1, d2 = d / 2;      // individual triangle size
+
+    const pA = new THREE.Vector3();
+    const pB = new THREE.Vector3();
+    const pC = new THREE.Vector3();
+
+    const cb = new THREE.Vector3();
+    const ab = new THREE.Vector3();
+
+    const color = new THREE.Color();
+
+    // positions 
+    for ( let index = 0; index < triangles; index ++ ) {
+      const t = index / 10;
+      const i = index * 9;
+
+      const x = t * Math.cos(2 * t);
+      const y = t;
+      const z = t * Math.sin(2 * t);
+
+      const ax = x + Math.random() * d - d2;
+      const ay = y + Math.random() * d - d2;
+      const az = z + Math.random() * d - d2;
+
+      const bx = x + Math.random() * d - d2;
+      const by = y + Math.random() * d - d2;
+      const bz = z + Math.random() * d - d2;
+
+      const cx = x + Math.random() * d - d2;
+      const cy = y + Math.random() * d - d2;
+      const cz = z + Math.random() * d - d2;
+
+      positions[ i + 0 ] = ax;
+      positions[ i + 1 ] = ay;
+      positions[ i + 2 ] = az;
+
+      positions[ i + 3 ] = bx;
+      positions[ i + 4 ] = by;
+      positions[ i + 5 ] = bz;
+
+      positions[ i + 6 ] = cx;
+      positions[ i + 7 ] = cy;
+      positions[ i + 8 ] = cz;
+
+      // flat face normals
+      pA.set( ax, ay, az );
+      pB.set( bx, by, bz );
+      pC.set( cx, cy, cz );
+
+      cb.subVectors( pC, pB );
+      ab.subVectors( pA, pB );
+      cb.cross( ab );
+
+      cb.normalize();
+
+      const nx = cb.x;
+      const ny = cb.y;
+      const nz = cb.z;
+
+      normals[ i + 0 ] = nx;
+      normals[ i + 1 ] = ny;
+      normals[ i + 2 ] = nz;
+
+      normals[ i + 3 ] = nx;
+      normals[ i + 4 ] = ny;
+      normals[ i + 5 ] = nz;
+
+      normals[ i + 6 ] = nx;
+      normals[ i + 7 ] = ny;
+      normals[ i + 8 ] = nz;
+
+      // Color
+      const vx = 117 / 255;
+      const vy = 103 / 255;
+      const vz = 1.0;
+
+      color.setHex(0x8072FF);
+
+      colors[ i + 0 ] = color.r;
+      colors[ i + 1 ] = color.g;
+      colors[ i + 2 ] = color.b;
+
+      colors[ i + 3 ] = color.r;
+      colors[ i + 4 ] = color.g;
+      colors[ i + 5 ] = color.b;
+
+      colors[ i + 6 ] = color.r;
+      colors[ i + 7 ] = color.g;
+      colors[ i + 8 ] = color.b;
+    }
+
+    let geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    geometry.computeBoundingSphere();
+
+    let material = new THREE.MeshPhongMaterial({
+      color: 0xaaaaaa, 
+      specular: 0xffffff, 
+      shininess: 250,
+      side: THREE.DoubleSide,
+      vertexColors: true
+    });
+
+    spiral = new THREE.Mesh(geometry, material);
+    scene.add(spiral);
+  }
+
   // 初始化渲染器
   function setupRenderer() {
     renderer = new THREE.WebGLRenderer({
@@ -96,9 +219,8 @@
 
   function setupControls() {
     // 初始化控制器
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    // controls.autoRotate = true;
+    // controls = new OrbitControls(camera, renderer.domElement);
+    // controls.enableDamping = true;
   }
   // const textureLoad = new THREE.TextureLoader();
   // textureLoad.load('TODO', (texture) => {
@@ -108,6 +230,10 @@
   //   scene.environment = texture;
   // });
 
+  function setupListener() {
+    window.addEventListener( 'resize', onWindowResize);
+  }
+
   // 动画方法
   function animate() {
     requestAnimationFrame(animate);
@@ -116,13 +242,20 @@
 
   // 渲染方法
   function render() {
-    // console.log("render");
     const delta = clock.getDelta();
     if (figurine !== undefined) {
-      figurine.rotation.z += delta * 0.5;
+      figurine.rotation.z += delta * 0.2;
+    }
+    if (spiral !== undefined) {
+      spiral.rotation.y += delta * 0.3;
     }
     renderer.render(scene, camera);
-    // controls.update();
+  }
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize( window.innerWidth, window.innerHeight );
   }
 </script>
 
