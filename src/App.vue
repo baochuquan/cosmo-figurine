@@ -5,13 +5,15 @@
   import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader';
   import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
   import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+import { transformDirection } from 'three/examples/jsm/nodes/Nodes.js';
 
 
+  const globalYOffset = -2;
   let figurine;
   let controls;
   let clock;
   let camera, scene, renderer;
-  let spiral, line;
+  let spirals = [];
 
   setup();
   animate();
@@ -23,7 +25,9 @@
     setupAxesHelper();
     setupLoader();
     setupLight();
-    setupSpiral();
+    setupFloor();
+    setupSpiral(0);
+    setupSpiral(Math.PI);
     setupRenderer();
     setupControls();
     setupListener();
@@ -37,7 +41,7 @@
       0.1, 
       1000
     );
-    camera.position.set(8, 10, 8);
+    camera.position.set(10, 12, 10);
     camera.lookAt(0, 3, 0);
     camera.updateProjectionMatrix();
   }
@@ -56,7 +60,7 @@
     const colladaLoader = new ColladaLoader(loadingManager);
     colladaLoader.load('./model/elf/elf.dae', (collada) => {
       figurine = collada.scene;
-      // figurine.position.set(0, -2, 0);
+      figurine.position.set(0, globalYOffset, 0);
     });
 
     // TODO: @baocq
@@ -76,23 +80,49 @@
   
   // 设置灯光
   function setupLight() {
-    const ambientLight = new THREE.AmbientLight(0xffffff);
+    // const ambientLight = new THREE.AmbientLight(0xffffff);
+    const ambientLight = new THREE.AmbientLight(0x444444);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5);
-    directionalLight.position.set(1, 1, 0).normalize();
-    scene.add(directionalLight);
+    // const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5);
+    // directionalLight.position.set(1, 1, 0).normalize();
+    // scene.add(directionalLight);
+
+    const spotLight1 = createSpotlight( 0xffffff );
+    const spotLight2 = createSpotlight( 0xffffff );
+    const spotLight3 = createSpotlight( 0xffffff );
+    spotLight1.position.set( 15, 20, 15 );
+    spotLight2.position.set( 0, 20, -15 );
+    spotLight3.position.set( -15, 20, 0 );
+    const lightHelper1 = new THREE.SpotLightHelper( spotLight1 );
+    const lightHelper2 = new THREE.SpotLightHelper( spotLight2 );
+    const lightHelper3 = new THREE.SpotLightHelper( spotLight3 );
+
+    scene.add( spotLight1, spotLight2, spotLight3 );
+    scene.add( lightHelper1, lightHelper2, lightHelper3 );
+  }
+
+  // 设置地板
+  function setupFloor() {
+    const matFloor = new THREE.MeshPhongMaterial( { color: 0xB0C4DE } );
+
+    const geoFloor = new THREE.PlaneGeometry( 1000, 1000 );
+
+    const mshFloor = new THREE.Mesh(geoFloor, matFloor);
+    mshFloor.rotation.x = - Math.PI * 0.5;
+    mshFloor.position.y = globalYOffset;
+    scene.add(mshFloor);
   }
 
   // 初始化环境碎片
-  function setupSpiral() {
-    const triangles = 1000;
+  function setupSpiral(startOffset) {
+    const triangles = 400;
 
     const positions = new Float32Array(triangles * 3 * 3);
     const colors = new Float32Array(triangles * 3 * 3);
     const normals = new Float32Array(triangles * 3 * 3);
 
-    const d = 1, d2 = d / 2;      // individual triangle size
+    let size = 1, size2 = size / 2; // individual triangle size
 
     const pA = new THREE.Vector3();
     const pB = new THREE.Vector3();
@@ -105,12 +135,16 @@
 
     // positions 
     for ( let index = 0; index < triangles; index ++ ) {
-      const t = index / 10;
+      const t = index / 20;
       const i = index * 9;
+      const progress = index / (triangles - 1);
+      const ratio = 0.2 + 0.8 * progress;    // 三角形大小递增
+      const d = size * ratio;
+      const d2 = d / 2;
 
-      const x = t * Math.cos(2 * t);
+      const x = t * Math.cos(2 * t + startOffset);
       const y = t;
-      const z = t * Math.sin(2 * t);
+      const z = t * Math.sin(2 * t + startOffset);
 
       const ax = x + Math.random() * d - d2;
       const ay = y + Math.random() * d - d2;
@@ -164,10 +198,12 @@
       normals[ i + 8 ] = nz;
 
       // Color
+      const v = 0.5 + 0.5 * progress
       const vx = 117 / 255;
       const vy = 103 / 255;
       const vz = 1.0;
 
+      // color.setRGB(v, v, v);
       color.setHex(0x8072FF);
 
       colors[ i + 0 ] = color.r;
@@ -198,8 +234,10 @@
       vertexColors: true
     });
 
-    spiral = new THREE.Mesh(geometry, material);
+    const spiral = new THREE.Mesh(geometry, material);
+    spiral.position.set(0, -2 + globalYOffset, 0);
     scene.add(spiral);
+    spirals.push(spiral);
   }
 
   // 初始化渲染器
@@ -219,8 +257,8 @@
 
   function setupControls() {
     // 初始化控制器
-    // controls = new OrbitControls(camera, renderer.domElement);
-    // controls.enableDamping = true;
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
   }
   // const textureLoad = new THREE.TextureLoader();
   // textureLoad.load('TODO', (texture) => {
@@ -246,7 +284,8 @@
     if (figurine !== undefined) {
       figurine.rotation.z += delta * 0.2;
     }
-    if (spiral !== undefined) {
+    for (let i = 0; i < spirals.length; i++) {
+      const spiral = spirals[i];
       spiral.rotation.y += delta * 0.3;
     }
     renderer.render(scene, camera);
@@ -256,6 +295,17 @@
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize( window.innerWidth, window.innerHeight );
+  }
+
+  function createSpotlight( color ) {
+    const newObj = new THREE.SpotLight( color, 10 );
+    newObj.castShadow = true;
+    newObj.angle = 0.3;
+    newObj.penumbra = 0.2;
+    newObj.decay = 2;
+    newObj.distance = 100;
+    newObj.intensity = 1000;
+    return newObj;
   }
 </script>
 
