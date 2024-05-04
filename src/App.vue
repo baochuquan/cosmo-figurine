@@ -5,10 +5,18 @@
   import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader';
   import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
   import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
-import { transformDirection } from 'three/examples/jsm/nodes/Nodes.js';
-
 
   const globalYOffset = -2;
+  const colors = [
+    new THREE.Color(0xFA5151),
+    new THREE.Color(0xFF9E00),
+    new THREE.Color(0x19D152), 
+    new THREE.Color(0x5DB7FF), 
+    new THREE.Color(0x946BFF), 
+    new THREE.Color(0xFFC500), 
+    new THREE.Color(0x8072FF), 
+    new THREE.Color(0x637CFF), 
+  ];
   let figurine;
   let controls;
   let clock;
@@ -20,17 +28,23 @@ import { transformDirection } from 'three/examples/jsm/nodes/Nodes.js';
 
   function setup() {
     clock = new THREE.Clock();
-    scene = new THREE.Scene();
+    setupScene();
     setupCamera();
-    setupAxesHelper();
+    // setupAxesHelper();
     setupLoader();
     setupLight();
     setupFloor();
     setupSpiral(0);
     setupSpiral(Math.PI);
     setupRenderer();
-    setupControls();
+    // setupControls();
     setupListener();
+  }
+
+  function setupScene() {
+    scene = new THREE.Scene();
+
+    scene.fog = new THREE.Fog( 0x5DB7FF, 10, 100 );
   }
 
   function setupCamera() {
@@ -60,6 +74,8 @@ import { transformDirection } from 'three/examples/jsm/nodes/Nodes.js';
     const colladaLoader = new ColladaLoader(loadingManager);
     colladaLoader.load('./model/elf/elf.dae', (collada) => {
       figurine = collada.scene;
+      figurine.castShadow = true;
+      figurine.receiveShadow = true;
       figurine.position.set(0, globalYOffset, 0);
     });
 
@@ -94,12 +110,12 @@ import { transformDirection } from 'three/examples/jsm/nodes/Nodes.js';
     spotLight1.position.set( 15, 20, 15 );
     spotLight2.position.set( 0, 20, -15 );
     spotLight3.position.set( -15, 20, 0 );
-    const lightHelper1 = new THREE.SpotLightHelper( spotLight1 );
-    const lightHelper2 = new THREE.SpotLightHelper( spotLight2 );
-    const lightHelper3 = new THREE.SpotLightHelper( spotLight3 );
-
     scene.add( spotLight1, spotLight2, spotLight3 );
-    scene.add( lightHelper1, lightHelper2, lightHelper3 );
+    
+    // const lightHelper1 = new THREE.SpotLightHelper( spotLight1 );
+    // const lightHelper2 = new THREE.SpotLightHelper( spotLight2 );
+    // const lightHelper3 = new THREE.SpotLightHelper( spotLight3 );    
+    // scene.add( lightHelper1, lightHelper2, lightHelper3 );
   }
 
   // 设置地板
@@ -111,12 +127,14 @@ import { transformDirection } from 'three/examples/jsm/nodes/Nodes.js';
     const mshFloor = new THREE.Mesh(geoFloor, matFloor);
     mshFloor.rotation.x = - Math.PI * 0.5;
     mshFloor.position.y = globalYOffset;
+    mshFloor.receiveShadow = true;
+    mshFloor.castShadow = true;
     scene.add(mshFloor);
   }
 
   // 初始化环境碎片
   function setupSpiral(startOffset) {
-    const triangles = 400;
+    const triangles = 250;
 
     const positions = new Float32Array(triangles * 3 * 3);
     const colors = new Float32Array(triangles * 3 * 3);
@@ -131,7 +149,7 @@ import { transformDirection } from 'three/examples/jsm/nodes/Nodes.js';
     const cb = new THREE.Vector3();
     const ab = new THREE.Vector3();
 
-    const color = new THREE.Color();
+    let color = new THREE.Color();
 
     // positions 
     for ( let index = 0; index < triangles; index ++ ) {
@@ -204,7 +222,8 @@ import { transformDirection } from 'three/examples/jsm/nodes/Nodes.js';
       const vz = 1.0;
 
       // color.setRGB(v, v, v);
-      color.setHex(0x8072FF);
+      // color.setHex(0x8072FF);
+      color = randomColor();
 
       colors[ i + 0 ] = color.r;
       colors[ i + 1 ] = color.g;
@@ -236,6 +255,7 @@ import { transformDirection } from 'three/examples/jsm/nodes/Nodes.js';
 
     const spiral = new THREE.Mesh(geometry, material);
     spiral.position.set(0, -2 + globalYOffset, 0);
+    spiral.castShadow = true;
     scene.add(spiral);
     spirals.push(spiral);
   }
@@ -298,19 +318,28 @@ import { transformDirection } from 'three/examples/jsm/nodes/Nodes.js';
   }
 
   function createSpotlight( color ) {
-    const newObj = new THREE.SpotLight( color, 10 );
+    const newObj = new THREE.SpotLight( color );
     newObj.castShadow = true;
     newObj.angle = 0.3;
     newObj.penumbra = 0.2;
     newObj.decay = 2;
-    newObj.distance = 100;
+    newObj.distance = 150;
     newObj.intensity = 1000;
     return newObj;
+  }
+
+  function randomColor() {
+    const min = Math.ceil(0); // 向上取整
+    const max = Math.floor(colors.length); // 向下取整
+    const index = Math.floor(Math.random() * (max - min) + min);
+    return colors[index];
   }
 </script>
 
 <template>
-  <div></div>
+  <div>
+    <canvas id="canvas"></canvas>
+  </div>
 </template>
 
 <style scoped>
