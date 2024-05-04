@@ -5,6 +5,7 @@
   import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader';
   import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
   import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+  import ForkMeOnGitHub from './components/ForkMeOnGitHub.vue'
 
   const globalYOffset = -2;
   const colors = [
@@ -338,6 +339,7 @@
 
 <template>
   <div>
+    <ForkMeOnGitHub/>
     <canvas id="canvas"></canvas>
   </div>
 </template>
